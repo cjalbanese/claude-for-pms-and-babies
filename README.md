@@ -7,7 +7,7 @@ For product managers, non-technical founders, curious bystanders, and anyone who
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cjalbanese/claude-for-pms/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/cjalbanese/claude-for-pms-and-babies/main/install.sh | bash
 ```
 
 Or as a Claude Code plugin:
@@ -73,7 +73,7 @@ Three hooks, each with a job:
 ## Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cjalbanese/claude-for-pms/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/cjalbanese/claude-for-pms-and-babies/main/uninstall.sh | bash
 ```
 
 ## License

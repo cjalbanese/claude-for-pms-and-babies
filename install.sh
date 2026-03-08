@@ -1,12 +1,12 @@
 #!/bin/bash
 # Claude Code for PMs and Babies — installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/cjalbanese/claude-for-pms/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/cjalbanese/claude-for-pms-and-babies/main/install.sh | bash
 
 set -e
 
 HOOK_DIR="$HOME/.claude/hooks"
 SETTINGS_FILE="$HOME/.claude/settings.json"
-BASE_URL="https://raw.githubusercontent.com/cjalbanese/claude-for-pms/main"
+BASE_URL="https://raw.githubusercontent.com/cjalbanese/claude-for-pms-and-babies/main"
 
 echo "Installing Claude Code for PMs and Babies..."
 
