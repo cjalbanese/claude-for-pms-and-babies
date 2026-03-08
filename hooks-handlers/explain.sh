@@ -43,7 +43,9 @@ if [ ! -f "$STATE_FILE" ]; then
   "session_writes": 0,
   "session_bash": 0,
   "session_greps": 0,
-  "session_agents": 0
+  "session_agents": 0,
+  "last_tool_name": "",
+  "consecutive_same": 0
 }
 INIT
 fi
@@ -57,7 +59,8 @@ if [ -z "$EVENT" ]; then
 fi
 
 STATE=$(cat "$STATE_FILE")
-TOTAL=$(echo "$STATE" | jq -r '.total_tools')
+TOTAL=$(echo "$STATE" | jq -r '.total_tools // 0')
+[ "$TOTAL" = "null" ] && TOTAL=0
 
 # --- Helper: pick random message ---
 pick() {
@@ -96,27 +99,27 @@ if [ "$EVENT" = "Stop" ]; then
   SF=$(echo "$STATE" | jq -r '.session_failures')
 
   MSG=$(pick 15 \
-    "$TOTAL actions. Zero meetings. All progress was actual progress." \
     "Turn done. ${SR} reads, ${SE} edits, ${SB} commands. Sprint complete." \
-    "$TOTAL tool uses. Zero were 'circling back.' All were work." \
-    "Done. Claude did in $TOTAL actions what normally takes a planning meeting, design review, and three Loom videos." \
-    "Round complete. Every action produced a measurable outcome. Not a 'directional alignment.' An outcome." \
-    "$TOTAL actions. If each were a Jira ticket, your backlog would be caught up." \
-    "Turn over. $TOTAL tool calls. Standup version: 'Made progress. No blockers.' Done." \
-    "$TOTAL operations. All real. All measurable. The burndown chart would love this." \
-    "Fin. $TOTAL actions. No Gantt chart consulted. No dependency flagged. It just happened." \
-    "That was $TOTAL actions. Each under a second. Your last retro took 90 minutes." \
-    "Done. $TOTAL tools. Success rate higher than your last product launch." \
-    "$TOTAL actions. No stakeholder alignment required. No async Loom recorded." \
+    "$TOTAL actions. Each one moved the needle. Not the kind on your OKR slide." \
+    "Done. $TOTAL steps. Most of them worked. All of them were fast." \
     "Round complete. $TOTAL things done. Not 'discussed.' Not 'explored.' Done." \
+    "$TOTAL operations. The burndown chart would love this." \
+    "That was $TOTAL actions. No status email required. You just watched it happen." \
     "Turn summary: $TOTAL actions. Ship it." \
-    "That's a wrap. $TOTAL actions. Sprint velocity: yes."
+    "That's a wrap. $TOTAL actions. Sprint velocity: yes." \
+    "$TOTAL tool calls. Each took under a second. Your last all-hands took 90 minutes." \
+    "Done. ${SE} edits, ${SF} errors. Error rate lower than most Monday deploys." \
+    "$TOTAL actions and nobody asked 'can we take this offline.' Beautiful." \
+    "Fin. Read ${SR}, wrote ${SW}, edited ${SE}. Actual output, measured in output." \
+    "$TOTAL steps. Zero were 'syncing up.' All were working." \
+    "Turn over. If this were a sprint review, we'd be done in 10 seconds." \
+    "Done. $TOTAL actions. The to-do list got shorter. Imagine."
   )
 
   jq -n --arg msg "$(printf '%b' "${C_SUM}› ${MSG}${RESET}")" '{"systemMessage": $msg}'
 
   # Reset counters for next turn
-  echo "$STATE" | jq '.total_tools = 0 | .session_reads = 0 | .session_edits = 0 | .session_writes = 0 | .session_bash = 0 | .session_failures = 0 | .session_greps = 0 | .session_agents = 0 | .reads_without_edit = 0 | .last_tools = []' > "$STATE_FILE"
+  echo "$STATE" | jq '.total_tools = 0 | .session_reads = 0 | .session_edits = 0 | .session_writes = 0 | .session_bash = 0 | .session_failures = 0 | .session_greps = 0 | .session_agents = 0 | .reads_without_edit = 0 | .last_tools = [] | .last_tool_name = "" | .consecutive_same = 0' > "$STATE_FILE"
   exit 0
 fi
 
@@ -251,10 +254,23 @@ esac
 LAST_TOOLS=$(echo "$STATE" | jq -c --arg t "$TOOL_NAME" '.last_tools + [$t] | .[-5:]')
 STATE=$(echo "$STATE" | jq --argjson lt "$LAST_TOOLS" '.last_tools = $lt')
 
+# --- Consecutive same-tool tracking ---
+LAST_TOOL_NAME=$(echo "$STATE" | jq -r '.last_tool_name // ""')
+CONSEC=$(echo "$STATE" | jq -r '.consecutive_same // 0')
+if [ "$TOOL_NAME" = "$LAST_TOOL_NAME" ]; then
+  CONSEC=$((CONSEC + 1))
+else
+  CONSEC=1
+fi
+STATE=$(echo "$STATE" | jq --arg t "$TOOL_NAME" --argjson c "$CONSEC" '.last_tool_name = $t | .consecutive_same = $c')
+
 # --- Frequency gate ---
 SHOW=true
 if [ "$FIRST_TIME" = "false" ]; then
-  if [ "$TOTAL" -gt 50 ]; then
+  # Consecutive same-tool suppression: after 2 in a row, only show ~20%
+  if [ "$CONSEC" -gt 2 ]; then
+    [ $((RANDOM % 100)) -ge 20 ] && SHOW=false
+  elif [ "$TOTAL" -gt 50 ]; then
     [ $((RANDOM % 100)) -ge 30 ] && SHOW=false
   elif [ "$TOTAL" -gt 10 ]; then
     [ $((RANDOM % 100)) -ge 50 ] && SHOW=false
@@ -329,8 +345,11 @@ if [ "$FIRST_TIME" = "true" ]; then
     Agent)
       MSG="First delegation. Claude just launched a sub-agent. The AI is managing AIs now."
       ;;
-    WebFetch|WebSearch)
-      MSG="Claude is looking something up online. Even AI has to Google things sometimes."
+    WebSearch)
+      MSG="First web search. Claude is Googling. Even AI has to look things up sometimes."
+      ;;
+    WebFetch)
+      MSG="First web fetch. Claude is reading a webpage. No cookie banners. No popups. Just content."
       ;;
     *)
       MSG="Claude used $TOOL_NAME. That's a tool. It does things. Specific things."
@@ -660,16 +679,35 @@ case "$TOOL_NAME" in
     )
     ;;
 
-  WebFetch|WebSearch)
-    MSG=$(pick 8 \
-      "Claude is Googling something. Even AI has to look things up." \
-      "Like asking the team channel, except someone actually answers." \
+  WebSearch)
+    MSG=$(pick 12 \
+      "Searching the web. Like asking the team channel, except someone answers." \
+      "Googling. Doesn't know everything. Knows to look it up. Take notes." \
+      "Web search. The AI equivalent of 'let me check Stack Overflow.'" \
+      "Looked it up. Admitted it didn't know. Went and found out. Refreshing." \
+      "Research. Not guessing. Not hallucinating. Looking it up. Revolutionary." \
+      "Searching. Claude could make something up. Instead it checks. Integrity." \
+      "Web search. Like when you Google something during a meeting and pretend you knew it." \
+      "Querying the internet. Faster than asking in Slack and waiting 3 hours." \
+      "Looking something up. Even experts use Google. Claude is no different." \
+      "Checking external sources. Due diligence. The real kind, not the slide kind." \
+      "Web search. Claude doesn't pretend to know everything. Unlike some people in meetings." \
+      "Searching. Not 'I'll circle back on that.' Actually going and finding the answer."
+    )
+    ;;
+
+  WebFetch)
+    MSG=$(pick 10 \
       "Fetching a webpage. No cookie banners. No popups. Just content." \
-      "Checking the documentation. Responsible behavior." \
-      "Doesn't know everything. Knows to look it up. Take notes." \
+      "Reading a URL. Like clicking a link, but Claude reads the whole page." \
+      "Pulling down a webpage. Faster than your browser. No ads." \
       "External docs. Usually out of date and partially wrong. Still the best option." \
       "Reading the internet. Not scrolling. Not doomscrolling. Research." \
-      "Looked it up. Admitted it didn't know. Went and found out. Refreshing."
+      "Downloading a page. No GDPR popup. No newsletter modal. Paradise." \
+      "Fetching content from a URL. Like reading an article without the paywall struggle." \
+      "Grabbing a webpage. Claude reads it all. Not just the headline. Unlike most people." \
+      "Web fetch. Getting the actual content. No 'accept all cookies' required." \
+      "Reading someone else's documentation. Checking the source. Responsible."
     )
     ;;
 
