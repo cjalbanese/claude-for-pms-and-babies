@@ -45,7 +45,9 @@ if [ ! -f "$STATE_FILE" ]; then
   "session_greps": 0,
   "session_agents": 0,
   "last_tool_name": "",
-  "consecutive_same": 0
+  "consecutive_same": 0,
+  "last_read_file": "",
+  "consecutive_edits": 0
 }
 INIT
 fi
@@ -92,11 +94,11 @@ if [ "$EVENT" = "Stop" ]; then
     exit 0
   fi
 
-  SR=$(echo "$STATE" | jq -r '.session_reads')
-  SE=$(echo "$STATE" | jq -r '.session_edits')
-  SW=$(echo "$STATE" | jq -r '.session_writes')
-  SB=$(echo "$STATE" | jq -r '.session_bash')
-  SF=$(echo "$STATE" | jq -r '.session_failures')
+  SR=$(echo "$STATE" | jq -r '.session_reads // 0')
+  SE=$(echo "$STATE" | jq -r '.session_edits // 0')
+  SW=$(echo "$STATE" | jq -r '.session_writes // 0')
+  SB=$(echo "$STATE" | jq -r '.session_bash // 0')
+  SF=$(echo "$STATE" | jq -r '.session_failures // 0')
 
   MSG=$(pick 15 \
     "Turn done. ${SR} reads, ${SE} edits, ${SB} commands. Sprint complete." \
@@ -119,7 +121,7 @@ if [ "$EVENT" = "Stop" ]; then
   jq -n --arg msg "$(printf '%b' "${C_SUM}› ${MSG}${RESET}")" '{"systemMessage": $msg}'
 
   # Reset counters for next turn
-  echo "$STATE" | jq '.total_tools = 0 | .session_reads = 0 | .session_edits = 0 | .session_writes = 0 | .session_bash = 0 | .session_failures = 0 | .session_greps = 0 | .session_agents = 0 | .reads_without_edit = 0 | .last_tools = [] | .last_tool_name = "" | .consecutive_same = 0' > "$STATE_FILE"
+  echo "$STATE" | jq '.total_tools = 0 | .session_reads = 0 | .session_edits = 0 | .session_writes = 0 | .session_bash = 0 | .session_failures = 0 | .session_greps = 0 | .session_agents = 0 | .reads_without_edit = 0 | .last_tools = [] | .last_tool_name = "" | .consecutive_same = 0 | .last_read_file = "" | .consecutive_edits = 0' > "$STATE_FILE"
   exit 0
 fi
 
@@ -218,6 +220,9 @@ if [ -z "$SEEN" ]; then
   STATE=$(echo "$STATE" | jq --arg t "$TOOL_NAME" '.tools_seen[$t] = true')
 fi
 
+# Track file for read→edit detection
+CURRENT_FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
+
 # Update tool-specific counters
 case "$TOOL_NAME" in
   Read)
@@ -225,28 +230,39 @@ case "$TOOL_NAME" in
     STATE=$(echo "$STATE" | jq --argjson n "$((RC + 1))" '.session_reads = $n')
     RWE=$(echo "$STATE" | jq -r '.reads_without_edit')
     STATE=$(echo "$STATE" | jq --argjson n "$((RWE + 1))" '.reads_without_edit = $n')
+    STATE=$(echo "$STATE" | jq --arg f "$CURRENT_FILE" '.last_read_file = $f')
+    STATE=$(echo "$STATE" | jq '.consecutive_edits = 0')
     ;;
   Edit)
     EC=$(echo "$STATE" | jq -r '.session_edits')
     STATE=$(echo "$STATE" | jq --argjson n "$((EC + 1))" '.session_edits = $n')
     STATE=$(echo "$STATE" | jq '.reads_without_edit = 0')
+    CE=$(echo "$STATE" | jq -r '.consecutive_edits // 0')
+    STATE=$(echo "$STATE" | jq --argjson n "$((CE + 1))" '.consecutive_edits = $n')
     ;;
   Write)
     WC=$(echo "$STATE" | jq -r '.session_writes')
     STATE=$(echo "$STATE" | jq --argjson n "$((WC + 1))" '.session_writes = $n')
     STATE=$(echo "$STATE" | jq '.reads_without_edit = 0')
+    STATE=$(echo "$STATE" | jq '.consecutive_edits = 0')
     ;;
   Bash)
     BC=$(echo "$STATE" | jq -r '.session_bash')
     STATE=$(echo "$STATE" | jq --argjson n "$((BC + 1))" '.session_bash = $n')
+    STATE=$(echo "$STATE" | jq '.consecutive_edits = 0')
     ;;
   Grep)
     GC=$(echo "$STATE" | jq -r '.session_greps')
     STATE=$(echo "$STATE" | jq --argjson n "$((GC + 1))" '.session_greps = $n')
+    STATE=$(echo "$STATE" | jq '.consecutive_edits = 0')
     ;;
   Agent)
     AC=$(echo "$STATE" | jq -r '.session_agents')
     STATE=$(echo "$STATE" | jq --argjson n "$((AC + 1))" '.session_agents = $n')
+    STATE=$(echo "$STATE" | jq '.consecutive_edits = 0')
+    ;;
+  *)
+    STATE=$(echo "$STATE" | jq '.consecutive_edits = 0')
     ;;
 esac
 
@@ -264,9 +280,18 @@ else
 fi
 STATE=$(echo "$STATE" | jq --arg t "$TOOL_NAME" --argjson c "$CONSEC" '.last_tool_name = $t | .consecutive_same = $c')
 
+# --- Check if this is a path-aware Read (always show) ---
+IS_PATH_AWARE=false
+if [ "$TOOL_NAME" = "Read" ]; then
+  READ_FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
+  if echo "$READ_FILE" | grep -qiE 'legacy|old|deprecated|config|\.env|test|spec|utils|helpers|migrat|package\.json|requirements\.txt|Cargo\.toml|go\.mod|README|CHANGELOG|LICENSE'; then
+    IS_PATH_AWARE=true
+  fi
+fi
+
 # --- Frequency gate ---
 SHOW=true
-if [ "$FIRST_TIME" = "false" ]; then
+if [ "$FIRST_TIME" = "false" ] && [ "$IS_PATH_AWARE" = "false" ]; then
   # Consecutive same-tool suppression: after 2 in a row, only show ~20%
   if [ "$CONSEC" -gt 2 ]; then
     [ $((RANDOM % 100)) -ge 20 ] && SHOW=false
@@ -299,6 +324,36 @@ if [ "$LAST_TWO" = "Write,Edit" ] && [ -z "$PAT_MSG" ]; then
   )
 fi
 
+# Edit same file that was just read (read→edit awareness)
+if [ "$TOOL_NAME" = "Edit" ] && [ -n "$CURRENT_FILE" ] && [ -z "$PAT_MSG" ]; then
+  LAST_READ=$(echo "$STATE" | jq -r '.last_read_file // ""')
+  if [ "$CURRENT_FILE" = "$LAST_READ" ]; then
+    FN=$(short_file "$CURRENT_FILE")
+    PAT_MSG=$(pick 4 \
+      "Read $FN, understood it, changed it. The full cycle. Most PRDs don't make it past step one." \
+      "Read it. Grasped it. Fixed it. Three steps. Your change advisory board has twelve." \
+      "Read then edit on the same file. Cause and effect. Like requirements leading to features. In theory." \
+      "Opened $FN, found the problem, fixed it. What your process calls a 'two-sprint initiative.'"
+    )
+  fi
+fi
+
+# Multi-file edit streak
+if [ "$TOOL_NAME" = "Edit" ] && [ -z "$PAT_MSG" ]; then
+  CE=$(echo "$STATE" | jq -r '.consecutive_edits // 0')
+  if [ "$CE" -eq 3 ]; then
+    PAT_MSG=$(pick 3 \
+      "Third edit in a row. Claude is in the zone. Don't schedule a sync." \
+      "Three consecutive edits. This is what 'flow state' looks like. No standup can replicate it." \
+      "Edit streak. Claude is shipping. Interrupting now would be a crime against velocity."
+    )
+  elif [ "$CE" -eq 5 ]; then
+    PAT_MSG="Five edits straight. Claude is refactoring. Like spring cleaning, but it actually improves things."
+  elif [ "$CE" -eq 8 ]; then
+    PAT_MSG="Eight consecutive edits. Claude is rewriting the world. Stand back."
+  fi
+fi
+
 # Milestones
 if [ "$TOTAL" -eq 50 ] && [ -z "$PAT_MSG" ]; then
   PAT_MSG="50 actions. This is what 'quick fix' means in practice."
@@ -306,6 +361,19 @@ elif [ "$TOTAL" -eq 100 ] && [ -z "$PAT_MSG" ]; then
   PAT_MSG="100 actions. Claude has done more this session than your last quarterly plan produced."
 elif [ "$TOTAL" -eq 200 ] && [ -z "$PAT_MSG" ]; then
   PAT_MSG="200 actions. This session has outlived most startups."
+fi
+
+# Time-aware commentary (at action milestones as a proxy)
+if [ -z "$PAT_MSG" ]; then
+  if [ "$TOTAL" -eq 60 ]; then
+    PAT_MSG="Still here? Impressive attention span. Most PMs would've switched tabs by now."
+  elif [ "$TOTAL" -eq 80 ]; then
+    PAT_MSG="You're still watching. Either this is fascinating or you have a meeting you're avoiding."
+  elif [ "$TOTAL" -eq 120 ]; then
+    PAT_MSG="120 actions deep. You've now watched more engineering than most skip-levels produce."
+  elif [ "$TOTAL" -eq 150 ]; then
+    PAT_MSG="Still here at 150. You might actually be technical. Don't tell anyone."
+  fi
 fi
 
 # If we have a pattern message, show it and skip normal message
@@ -334,7 +402,29 @@ if [ "$FIRST_TIME" = "true" ]; then
       MSG="First new file. Creation has begun. No kickoff meeting was held."
       ;;
     Bash)
-      MSG="First command of the session. Claude is talking to the computer now. Buckle up."
+      # Smart first-time Bash: detect what the command actually is
+      CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
+      if echo "$CMD" | grep -qiE '^git\s'; then
+        MSG="First command: a git operation. Version control. Like Track Changes, but engineers trust it."
+      elif echo "$CMD" | grep -qiE '^(npm|yarn|pnpm|pip|brew)\s'; then
+        MSG="First command: installing something. The session needs supplies before work can begin."
+      elif echo "$CMD" | grep -qiE '^(curl|wget)\s'; then
+        MSG="First command: fetching something from the internet. Claude starts by asking around."
+      elif echo "$CMD" | grep -qiE '^(python|node|ruby|cargo|go)\s'; then
+        MSG="First command: running code. Claude doesn't just write it — it runs it to check."
+      elif echo "$CMD" | grep -qiE '^(docker|kubectl)\s'; then
+        MSG="First command: infrastructure. Claude is talking to the cloud. Or a simulation of one."
+      elif echo "$CMD" | grep -qiE '^(ls|pwd|cat|head|tail|find)\s'; then
+        MSG="First command: looking around. Claude orients itself before working. Revolutionary behavior."
+      elif echo "$CMD" | grep -qiE '^(make|cmake)\s'; then
+        MSG="First command: building something. The compiler is about to have opinions."
+      elif echo "$CMD" | grep -qiE '^(gcloud|aws|az)\s'; then
+        MSG="First command: talking to a cloud provider. This may cost money. Your money."
+      elif echo "$CMD" | grep -qiE 'open\s'; then
+        MSG="First command: opening something. Claude is being helpful. Like an assistant. Imagine."
+      else
+        MSG="First command of the session. Claude is talking to the computer now. Buckle up."
+      fi
       ;;
     Grep)
       MSG="First search. Claude is hunting through the codebase. Like Ctrl+F across 10,000 pages."
@@ -350,6 +440,15 @@ if [ "$FIRST_TIME" = "true" ]; then
       ;;
     WebFetch)
       MSG="First web fetch. Claude is reading a webpage. No cookie banners. No popups. Just content."
+      ;;
+    ToolSearch)
+      MSG="Claude is looking for the right tool. Like checking which app to use, but faster."
+      ;;
+    ListFiles)
+      MSG="Listing files. Getting the lay of the land before doing anything. Recon."
+      ;;
+    TaskCreate|TaskUpdate)
+      MSG="Managing tasks. Claude has a to-do list. Unlike yours, items leave it."
       ;;
     *)
       MSG="Claude used $TOOL_NAME. That's a tool. It does things. Specific things."
@@ -369,17 +468,31 @@ case "$TOOL_NAME" in
     FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // ""')
     FN=$(short_file "$FILE")
 
-    # Path-based commentary
+    # Path-based commentary (bypasses frequency gate — always show)
+    PATH_MSG=""
     if echo "$FILE" | grep -qi "legacy\|old\|deprecated"; then
-      MSG="'Legacy' means someone built it, left, and took the context with them."
+      PATH_MSG="'Legacy' means someone built it, left, and took the context with them."
     elif echo "$FILE" | grep -qi "config"; then
-      MSG="Config file. The developer thermostat. Everyone has opinions. Nobody's happy."
+      PATH_MSG="Config file. The developer thermostat. Everyone has opinions. Nobody's happy."
     elif echo "$FILE" | grep -qiE '\.env'; then
-      MSG=".env file. Contains secrets. If this hits GitHub, you'll have a meeting with Security."
+      PATH_MSG=".env file. Contains secrets. If this hits GitHub, you'll have a meeting with Security."
     elif echo "$FILE" | grep -qiE 'test|spec'; then
-      MSG="Reading a test file. Tests prove things work. Like QA but less likely to be cut from budget."
+      PATH_MSG="Reading a test file. Tests prove things work. Like QA but less likely to be cut from budget."
     elif echo "$FILE" | grep -qi "utils\|helpers"; then
-      MSG="Utils. The junk drawer of the codebase."
+      PATH_MSG="Utils. The junk drawer of the codebase."
+    elif echo "$FILE" | grep -qiE 'migration|migrate'; then
+      PATH_MSG="Database migration. Changing the shape of data. Like reorganizing a spreadsheet with a million rows."
+    elif echo "$FILE" | grep -qi "package.json\|requirements.txt\|Cargo.toml\|go.mod"; then
+      PATH_MSG="Dependency manifest. The guest list of code this project relies on."
+    elif echo "$FILE" | grep -qiE 'README|CHANGELOG|LICENSE'; then
+      PATH_MSG="Documentation. Claude reads it. That makes one of us."
+    fi
+
+    if [ -n "$PATH_MSG" ]; then
+      # Path messages bypass frequency gate — always show
+      echo "$STATE" | jq --argjson t "$TOTAL" '.total_tools = $t' > "$STATE_FILE"
+      jq -n --arg msg "$(printf '%b' "${C_REG}› ${PATH_MSG}${RESET}")" '{"systemMessage": $msg}'
+      exit 0
     else
       MSG=$(pick 20 \
         "Claude is reading $FN. The whole thing. Without skimming. Imagine." \
@@ -609,6 +722,12 @@ case "$TOOL_NAME" in
       MSG="Installing a system tool. An app store for developers. No reviews. Everything's free."
     elif echo "$CMD" | grep -qiE 'tail\s+-f'; then
       MSG="Watching a log file in real time. Like waiting for a Slack reply, but useful."
+    elif echo "$CMD" | grep -qiE 'open\s'; then
+      MSG="Opening something for you. Claude as personal assistant. The future is now."
+    elif echo "$CMD" | grep -qiE '^(python3?|node|ruby|cargo run|go run)\s'; then
+      MSG="Running code. The thing computers are for. Everything else is overhead."
+    elif echo "$CMD" | grep -qiE '^(gcloud|aws|az)\s'; then
+      MSG="Cloud CLI. Talking to someone else's computer. That's what 'the cloud' means."
     else
       # Generic bash messages
       MSG=$(pick 20 \
@@ -708,6 +827,32 @@ case "$TOOL_NAME" in
       "Grabbing a webpage. Claude reads it all. Not just the headline. Unlike most people." \
       "Web fetch. Getting the actual content. No 'accept all cookies' required." \
       "Reading someone else's documentation. Checking the source. Responsible."
+    )
+    ;;
+
+  ToolSearch)
+    MSG=$(pick 4 \
+      "Looking for the right tool. Like checking which app to use, but faster." \
+      "Tool discovery. Claude finds the right instrument before operating. Unlike some surgeons." \
+      "Searching for a capability. The AI equivalent of 'is there an app for that?'" \
+      "Finding the right tool for the job. More methodical than your last vendor evaluation."
+    )
+    ;;
+
+  TaskCreate|TaskUpdate|TaskGet|TaskList)
+    MSG=$(pick 4 \
+      "Task management. Claude tracks its own work. No Jira license required." \
+      "Updating the to-do list. Items go on. Items come off. The system works." \
+      "Project management but the project manager is also doing the project." \
+      "Tracking progress. Unlike your backlog, things actually move here."
+    )
+    ;;
+
+  ListFiles)
+    MSG=$(pick 3 \
+      "Listing files. Getting the lay of the land. Recon before action." \
+      "Checking what's in the directory. Like opening Finder, but useful." \
+      "File listing. Inventory before changes. Claude counts before cutting."
     )
     ;;
 

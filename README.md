@@ -23,15 +23,19 @@ Requires [jq](https://jqlang.github.io/jq/) (`brew install jq`).
 Subtle colored annotations after Claude's actions:
 
 ```
-› Claude is reading server.ts. The whole thing. Without skimming. Imagine.
+› First command: a git operation. Version control. Like Track Changes, but engineers trust it.
 ```
 
 ```
-› Installing dependencies. Code by strangers your product relies on. Try not to think about it.
+› .env file. Contains secrets. If this hits GitHub, you'll have a meeting with Security.
 ```
 
 ```
-› git blame. Checks who wrote each line. Yes, it's really called 'blame.' HR was not consulted.
+› Read routes.ts, understood it, changed it. The full cycle. Most PRDs don't make it past step one.
+```
+
+```
+› Three consecutive edits. This is what 'flow state' looks like. No standup can replicate it.
 ```
 
 ```
@@ -39,7 +43,7 @@ Subtle colored annotations after Claude's actions:
 ```
 
 ```
-› 47 actions. Zero meetings. All progress was actual progress.
+› Turn done. 12 reads, 4 edits, 3 commands. Sprint complete.
 ```
 
 ## How it works
@@ -57,18 +61,24 @@ Three hooks, each with a job:
 - **First 10 actions**: Always explains (onboarding you)
 - **10-50**: ~50% of actions
 - **50+**: ~30% of actions
-- **Always shows**: First occurrence of each tool, errors, pattern-based observations
+- **3+ consecutive same tool**: ~20% (avoids the "12 web searches, 12 messages" problem)
+- **Always shows**: First occurrence of each tool, errors, path-aware commentary, pattern observations
 
 ## What it covers
 
-**200+ unique messages** across:
+**250+ unique messages** across:
 
-- **Read/Edit/Write/Bash/Grep/Glob/Agent/WebSearch** — tool-specific explanations
-- **40+ specific commands** — git commit, npm install, pytest, docker, curl, ssh, rm -rf, and more
-- **Path-aware commentary** — legacy code, config files, .env files, test files, utils
-- **Pattern detection** — reads without edits, immediate re-edits, retries after failure, session milestones
-- **20 failure messages** — permission denied, command not found, timeouts, generic errors
-- **15 turn summaries** — end-of-response recaps
+- **Read/Edit/Write/Bash/Grep/Glob/Agent/WebSearch/WebFetch/ToolSearch** — tool-specific explanations
+- **40+ specific commands** — git commit, npm install, pytest, docker, curl, ssh, rm -rf, gcloud, and more
+- **Smart first-time Bash** — detects what the first command actually does (git, install, cloud CLI, etc.)
+- **Path-aware commentary** — legacy code, config files, .env, tests, utils, migrations, package.json, README
+- **Read-then-edit detection** — notices when Claude reads and edits the same file
+- **Edit streaks** — calls out 3/5/8+ consecutive edits ("Claude is in the zone")
+- **Time-aware commentary** — rewards you for still watching at 60/80/120/150 actions
+- **Pattern detection** — reads without edits, Write→Edit, retries after failure, session milestones
+- **Consecutive-tool suppression** — won't spam the same message 12 times during a search burst
+- **20 failure messages** — permission denied, command not found, timeouts, retries, generic errors
+- **15 turn summaries** — end-of-response recaps with actual stats
 
 ## Uninstall
 
