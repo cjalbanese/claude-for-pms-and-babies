@@ -1,8 +1,8 @@
 # Claude Code for PMs and Babies
 
-Explains what Claude Code is doing in plain English. Viciously condescending. Aggressively infantilizing. Technically accurate.
+Explains what Claude Code is doing in plain English. Viciously condescending. Relentlessly roasting. Technically accurate.
 
-For dumb baby product managers, non-technical founders, curious bystanders, and anyone who has ever looked at a terminal and felt fear.
+For product managers, non-technical founders, curious bystanders, and anyone who has ever looked at a terminal and felt fear.
 
 ## Install
 
@@ -39,7 +39,7 @@ Subtle colored annotations after Claude's actions:
 ```
 
 ```
-› Oopsie! Something went boom. Don't cry. Claude will fix it. You just sit there.
+› Docker failed. Containers are hard. You said 'just containerize it' in a meeting once. This is what that costs.
 ```
 
 ```
@@ -66,18 +66,22 @@ Three hooks, each with a job:
 
 ## What it covers
 
-**250+ unique messages** across:
+**350+ unique messages** across:
 
-- **Read/Edit/Write/Bash/Grep/Glob/Agent/WebSearch/WebFetch/ToolSearch** — tool-specific explanations
-- **40+ specific commands** — git commit, npm install, pytest, docker, curl, ssh, rm -rf, gcloud, and more
+- **Read/Edit/Write/Bash/Grep/Glob/Agent/WebSearch/WebFetch/ToolSearch** — tool-specific roasts
+- **40+ specific commands** — git commit, npm install, pytest, docker, curl, ssh, rm -rf, kubectl, gh, and more
+- **Personalized digs** — extracts package names, URLs, branch names, grep patterns, file types, and domains from actual tool input to roast you specifically
+- **25+ path-aware triggers** — legacy code, .env, config, tests, migrations, auth, middleware, schema, routes, Dockerfile, CI/CD, .lock files, and more
+- **9 file extension roasts** — TypeScript, Python, Go, Rust, Ruby, SQL, shell, JSON, YAML each get targeted commentary
 - **Smart first-time Bash** — detects what the first command actually does (git, install, cloud CLI, etc.)
-- **Path-aware commentary** — legacy code, config files, .env, tests, utils, migrations, package.json, README
 - **Read-then-edit detection** — notices when Claude reads and edits the same file
-- **Edit streaks** — calls out 3/5/8+ consecutive edits ("Claude is in the zone")
-- **Time-aware commentary** — rewards you for still watching at 60/80/120/150 actions
-- **Pattern detection** — reads without edits, Write→Edit, retries after failure, session milestones
+- **Edit streaks** — calls out 3/5/8/12+ consecutive edits ("Claude is in the zone")
+- **Personalized failures** — detects npm, docker, git push, curl, pip, ssh, terraform, and test failures with specific burns
+- **HTTP error detection** — 403, 404, 500, rate limits, ECONNREFUSED, ENOENT, syntax errors
+- **Time-aware commentary** — roasts you for still watching at 40/60/80/120/150/175 actions
+- **Pattern detection** — reads without edits, Grep→Edit, Write→Edit, retries after failure, consecutive read streaks
+- **Personalized stop summaries** — analyzes session composition (error-heavy, read-only, search-heavy, edit-heavy, sub-agent usage) for targeted recaps
 - **Consecutive-tool suppression** — won't spam the same message 12 times during a search burst
-- **20 failure messages** — permission denied, command not found, timeouts, retries, generic errors
 - **15 turn summaries** — end-of-response recaps with actual stats
 
 ## Uninstall
