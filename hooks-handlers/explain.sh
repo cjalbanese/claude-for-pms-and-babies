@@ -115,7 +115,7 @@ if [ "$EVENT" = "Stop" ]; then
     "$TOTAL actions and at no point did anyone say 'let's table this.' Paradise." \
     "Wrapped up. $TOTAL actions. You can go back to Slack now. We know you want to." \
     "$TOTAL things done. If you understood any of them, you wouldn't need this plugin." \
-    "Session complete. $TOTAL actions. More than your last two sprints combined, sweetie."
+    "Session complete. $TOTAL actions. More than your last two sprints combined."
   )
 
   jq -n --arg msg "$(printf '%b' "${C_SUM}› ${MSG}${RESET}")" '{"systemMessage": $msg}'
@@ -142,7 +142,7 @@ if [ "$EVENT" = "PostToolUseFailure" ]; then
   if [ -n "$FAILED_CMD" ] && [ "$FAILED_CMD" = "$LAST_FAILED" ]; then
     RETRY_MSG=$(pick 3 \
       "Same command again. When you do this it's called 'stubbornness.' When Claude does it, 'persistence.'" \
-      "Trying again. Don't worry your little head about it. The grown-ups are handling it." \
+      "Trying again. Claude doesn't give up. Unlike your last three product initiatives." \
       "Second attempt. Claude learns from failure. You just reschedule the meeting."
     )
   fi
@@ -172,26 +172,26 @@ if [ "$EVENT" = "PostToolUseFailure" ]; then
       )
     else
       MSG=$(pick 20 \
-        "Oopsie! Something went boom. Don't cry. Claude will fix it. You just sit there." \
-        "Uh oh! An error. Scary red text. Deep breaths, little one. It's going to be okay." \
+        "Something broke. Claude will fix it. You just sit there." \
+        "Error. Red text. Claude already knows why. You'd need a 30-minute explainer and still wouldn't get it." \
         "It broke. This is normal. Like when you break the build by merging without review. Normal." \
         "Error. The computer is being honest with you. I know that's unfamiliar." \
-        "Something failed. Claude already knows why. You never will. And that's okay, pumpkin." \
-        "Boo-boo in the code. No need to escalate. No need to Slack the channel. Just wait." \
+        "Something failed. Claude already knows why. You never will. And that's fine." \
+        "Error. No need to escalate. No need to Slack the channel. No need to 'flag it.' Just wait." \
         "That didn't work. But unlike your product strategy, Claude has a backup plan." \
         "Broke. Don't panic. Don't open a Jira ticket. Don't 'flag it.' Just watch." \
         "Failed. In your world this triggers a post-mortem. Here it triggers a retry. Faster." \
         "Error. Claude reads it and understands it. You'd read it and schedule a meeting about it." \
         "Crashed. Normal. This is what 'iterating' actually looks like. Not a slide deck." \
-        "It didn't work, sweetheart. But Claude doesn't need a support group. It just tries again." \
-        "Oops. Something went wrong. Shh shh shh. It's fine. Mommy Claude is handling it." \
+        "It didn't work. Claude doesn't need a support group. It just tries again." \
+        "Something went wrong. Claude is already fixing it. No war room needed. No incident commander." \
         "Error encountered. Don't touch anything. Seriously. Please don't touch anything." \
         "Failed. Unlike your last launch, Claude noticed immediately." \
         "That broke. Claude saw why in 0.01 seconds. Your last incident review took four hours." \
         "Something went wrong. No, you can't help. That's not mean — it's just accurate." \
         "Error. The kind with actual diagnostic information. Not 'something feels off in the UX.'" \
         "It failed. Like your attempt to learn SQL that one time. But Claude recovers faster." \
-        "Whoopsie-daisy. A wittle error. Claude will kissie it and make it all better."
+        "Failed. Claude handles failure the way you handle success — quickly and without understanding why."
       )
     fi
   fi
@@ -311,7 +311,7 @@ PAT_MSG=""
 # Reads without edit
 RWE=$(echo "$STATE" | jq -r '.reads_without_edit')
 if [ "$RWE" -eq 5 ]; then
-  PAT_MSG="5 files read, nothing changed yet. It's called 'understanding,' honey. You just call it 'research.'"
+  PAT_MSG="5 files read, nothing changed yet. It's called 'understanding the problem.' You just call it 'research.'"
 elif [ "$RWE" -eq 10 ]; then
   PAT_MSG="10 files read, still no edits. Claude is being thorough. You'd have shipped it broken by now."
 elif [ "$RWE" -eq 15 ]; then
@@ -676,7 +676,7 @@ case "$TOOL_NAME" in
     elif echo "$CMD" | grep -qiE '(kill|pkill)\s'; then
       MSG="Killing a process. No exit interview. No two weeks notice. No transition plan. Just gone. Efficient."
     elif echo "$CMD" | grep -qiE 'rm\s+-rf'; then
-      MSG="rm -rf. Deleting everything in a directory. Permanently. No trash can. No undo. Don't try this at home, sweetie."
+      MSG="rm -rf. Deleting everything in a directory. Permanently. No trash can. No undo. No going back."
     elif echo "$CMD" | grep -qiE '^rm\s'; then
       MSG="Deleted a file. It's gone. Not in the recycling bin. Gone gone. Try not to think about permanence."
     elif echo "$CMD" | grep -qiE '^chmod\s'; then
@@ -690,7 +690,7 @@ case "$TOOL_NAME" in
     elif echo "$CMD" | grep -qiE '^mkdir\s'; then
       MSG="Making a new folder. No naming convention meeting was held. No one cried. Progress."
     elif echo "$CMD" | grep -qiE '^cd\s'; then
-      MSG="Changing directories. Moving to a different folder. Not everything requires an announcement, sweetheart."
+      MSG="Changing directories. Moving to a different folder. Not everything requires a Slack announcement."
     elif echo "$CMD" | grep -qiE '^echo\s'; then
       MSG="Printing text. Like writing on a whiteboard, except someone actually reads it."
     elif echo "$CMD" | grep -qiE '^sleep\s'; then
@@ -862,7 +862,7 @@ case "$TOOL_NAME" in
   *)
     MSG=$(pick 3 \
       "Claude used $TOOL_NAME. You don't know what that is. That's okay. You weren't going to learn anyway." \
-      "$TOOL_NAME was invoked. Technical. Don't worry your pretty little head about it." \
+      "$TOOL_NAME was invoked. Technical. You don't need to understand it. You weren't going to." \
       "A tool was used. The tool did its job. If only all tools did. Looking at you, Jira."
     )
     ;;
