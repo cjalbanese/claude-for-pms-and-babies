@@ -1,8 +1,8 @@
 # Claude Code for PMs and Babies
 
-Explains what Claude Code is doing in plain English. Gently condescending. Mildly infantilizing. Informative.
+Explains what Claude Code is doing in plain English. Viciously condescending. Aggressively infantilizing. Technically accurate.
 
-For product managers, non-technical founders, curious bystanders, and anyone who has ever looked at a terminal and felt fear.
+For dumb baby product managers, non-technical founders, curious bystanders, and anyone who has ever looked at a terminal and felt fear.
 
 ## Install
 
@@ -23,27 +23,27 @@ Requires [jq](https://jqlang.github.io/jq/) (`brew install jq`).
 Subtle colored annotations after Claude's actions:
 
 ```
-› First command: a git operation. Version control. Like Track Changes, but engineers trust it.
+› First command: git. Version control. It tracks every change, unlike your meeting notes, which track nothing.
 ```
 
 ```
-› .env file. Contains secrets. If this hits GitHub, you'll have a meeting with Security.
+› .env file. Passwords and secrets live here. If you commit this to GitHub, you'll be on the news. The bad kind.
 ```
 
 ```
-› Read routes.ts, understood it, changed it. The full cycle. Most PRDs don't make it past step one.
+› Opened routes.ts, found the issue, fixed it. What you'd call an 'epic' Claude calls 'Tuesday afternoon.'
 ```
 
 ```
-› Three consecutive edits. This is what 'flow state' looks like. No standup can replicate it.
+› Three edits in a row. Claude is in flow state. You don't know what that is because Slack exists.
 ```
 
 ```
-› Something broke. Normal. If everything worked first try, we wouldn't need sprints.
+› Oopsie! Something went boom. Don't cry. Claude will fix it. You just sit there.
 ```
 
 ```
-› Turn done. 12 reads, 4 edits, 3 commands. Sprint complete.
+› 47 actions. You contributed zero of them. Good job supervising.
 ```
 
 ## How it works
@@ -53,7 +53,7 @@ Three hooks, each with a job:
 | Hook | When | What |
 |------|------|------|
 | PostToolUse | After every action | Explains what just happened |
-| PostToolUseFailure | After errors | Reassures you (condescendingly) |
+| PostToolUseFailure | After errors | Talks down to you (lovingly) |
 | Stop | End of each turn | Summarizes what was accomplished |
 
 ## Message frequency
